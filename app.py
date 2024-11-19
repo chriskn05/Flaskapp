@@ -1,16 +1,20 @@
 from flask import Flask, request, jsonify
 import hmac
-import hashlib
-import base64
 import time
 import requests
+import hashlib
+import base64
 
 app = Flask(__name__)
 
-# API Credentials (replace with your own)
+# Replace these with your API credentials
 API_KEY = 'bg_a0081bdd9373706e1eae0e383157bc7b'
 SECRET_KEY = '8189ded8c1b94d00d49ba1582879bcf4a90e0bdef8db4392e0397dad670d87ce'
-BASE_URL = 'https://api.bitget.com'
+PASSPHRASE = '0287fzlhwhjf987293748'
+BASE_URL = "https://api.bitget.com"
+
+# Global cache dictionary
+cache = {}
 
 # Function to generate HMAC signature
 def generate_signature(timestamp, method, path, query='', body=''):
@@ -22,33 +26,44 @@ def generate_signature(timestamp, method, path, query='', body=''):
     )
     return base64.b64encode(mac.digest()).decode()
 
-# Endpoint to fetch ticker data
+# Endpoint for fetching ticker data
 @app.route('/bitget/getTicker', methods=['GET'])
 def get_ticker():
-    # Extract query parameter
+    # Get symbol parameter or default to BTCUSDT
     symbol = request.args.get('symbol', 'BTCUSDT')
+    
+    # Serve from cache if response is less than 5 minutes old
+    if symbol in cache and (time.time() - cache[symbol]['timestamp'] < 300):
+        return jsonify(cache[symbol]['data'])
+    
+    # Generate timestamp and signature
     timestamp = str(int(time.time() * 1000))
-    path = '/api/v2/spot/market/tickers'
-    query = f'?symbol={symbol}'
-    method = 'GET'
-
-    # Generate signature
-    signature = generate_signature(timestamp, method, path, query)
+    query = f"?symbol={symbol}"
+    path = "/api/v2/spot/market/tickers"
+    signature = generate_signature(timestamp, 'GET', path, query)
 
     # Set headers
     headers = {
         'ACCESS-KEY': API_KEY,
         'ACCESS-SIGN': signature,
         'ACCESS-TIMESTAMP': timestamp,
-        'Content-Type': 'application/json',
+        'ACCESS-PASSPHRASE': PASSPHRASE
     }
 
-    # Make request to Bitget API
+    # Make the request to Bitget API
     response = requests.get(f"{BASE_URL}{path}{query}", headers=headers)
+    data = response.json()
+    
+    # Cache the response
+    cache[symbol] = {'timestamp': time.time(), 'data': data}
+    
+    return jsonify(data)
 
-    # Return the response as JSON
-    return jsonify(response.json())
+# Health check endpoint to test if the app is live
+@app.route('/ping', methods=['GET'])
+def ping():
+    return "pong", 200
 
 # Run the app
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(debug=True)
