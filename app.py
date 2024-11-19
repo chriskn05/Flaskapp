@@ -1,50 +1,48 @@
 from flask import Flask, request, jsonify
-import time
 import hmac
+import base64
+import time
+import requests
 import hashlib
-import os
 
 app = Flask(__name__)
 
-# Your API Key and Secret Key
-API_KEY = "bg_a0081bdd9373706e1eae0e383157bc7b"
-SECRET_KEY = "8189ded8c1b94d00d49ba1582879bcf4a90e0bdef8db4392e0397dad670d87ce"
+# Replace these with your API credentials
+API_KEY = 'bg_a0081bdd9373706e1eae0e383157bc7b'
+SECRET_KEY = '8189ded8c1b94d00d49ba1582879bcf4a90e0bdef8db4392e0397dad670d87ce'
+BASE_URL = 'https://api.bitget.com'
 
-@app.route("/generate-signature", methods=["POST"])
-def generate_signature():
-    # Parse the JSON payload from the request
-    data = request.get_json()
+# Function to generate HMAC signature
+def generate_signature(timestamp, method, path, query='', body=''):
+    message = f"{timestamp}{method.upper()}{path}{query}{body}"
+    mac = hmac.new(bytes(SECRET_KEY, encoding='utf-8'),
+                   bytes(message, encoding='utf-8'),
+                   hashlib.sha256)
+    return base64.b64encode(mac.digest()).decode()
 
-    # Validate the required fields in the request
-    if not data or "method" not in data or "path" not in data:
-        return jsonify({"error": "Invalid request payload"}), 400
-
-    # Extract request details
-    method = data["method"].upper()
-    path = data["path"]
-    body = data.get("body", "")
-
-    # Generate a timestamp
+# Endpoint for fetching ticker data
+@app.route('/bitget/getTicker', methods=['GET'])
+def get_ticker():
+    symbol = request.args.get('symbol', 'BTCUSDT')
     timestamp = str(int(time.time() * 1000))
+    path = f"/api/v2/spot/market/tickers"
+    query = f"?symbol={symbol}"
+    method = 'GET'
+    
+    # Generate signature
+    signature = generate_signature(timestamp, method, path, query)
+    
+    # Set headers
+    headers = {
+        'ACCESS-KEY': API_KEY,
+        'ACCESS-SIGN': signature,
+        'ACCESS-TIMESTAMP': timestamp,
+        'Content-Type': 'application/json',
+    }
 
-    # Construct the prehash string
-    prehash = f"{timestamp}{method}{path}{body}"
+    # Make the request to Bitget API
+    response = requests.get(f"{BASE_URL}{path}{query}", headers=headers)
+    return jsonify(response.json())
 
-    # Create HMAC signature
-    signature = hmac.new(
-        SECRET_KEY.encode("utf-8"),
-        prehash.encode("utf-8"),
-        hashlib.sha256
-    ).hexdigest()
-
-    # Return the signature, timestamp, and API key in JSON format
-    return jsonify({
-        "api_key": API_KEY,
-        "signature": signature,
-        "timestamp": timestamp
-    })
-
-if __name__ == "__main__":
-    # Support dynamic port binding for deployment
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+if __name__ == '__main__':
+    app.run(debug=True)
