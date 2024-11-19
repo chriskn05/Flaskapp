@@ -1,14 +1,14 @@
 from flask import Flask, request, jsonify
-import hashlib
-import hmac
 import time
+import hmac
+import hashlib
 import os
-
-app = Flask(__name__)
 
 # Your API Key and Secret Key
 API_KEY = "bg_a0081bdd9373706e1eae0e383157bc7b"  # Your provided API Key
-SECRET_KEY = "8189ded8c1b94d00d49ba1582879bcf4a90e0bdef8db4392e0397dad670d87ce"  # Your provided Secret Key
+SECRET_KEY = "8189ded8c1b94d00d49ba1582879bcf4a90e0bdef8db4392e0397dad670d87ce"
+
+app = Flask(__name__)
 
 @app.route("/generate-signature", methods=["POST"])
 def generate_signature():
