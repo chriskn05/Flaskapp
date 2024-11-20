@@ -10,9 +10,9 @@ import os
 app = Flask(__name__)
 
 # Replace these with your API credentials
-API_KEY = "bg_a0081bdd9373706e1eae0e383157bc7b"
-SECRET_KEY = "8189ded8c1b94d00d49ba1582879bcf4a90e0bdef8db4392e0397dad670d87ce"
-PASSPHRASE = "0287tf2hwhjf987239748"
+API_KEY = os.environ.get("API_KEY")
+SECRET_KEY = os.environ.get("SECRET_KEY")
+PASSPHRASE = os.environ.get("PASSPHRASE")
 BASE_URL = "https://api.bitget.com"
 
 # Global cache dictionary
